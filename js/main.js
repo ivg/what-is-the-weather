@@ -95,7 +95,7 @@
   var initialState = {
     location : guessLocation(),
     temperatureToNumber : function(K) {
-      return Weather.kelvinToCelsius(K).toFixed();
+      return (K - 273.15).toFixed();
     }
   };
 
@@ -161,8 +161,9 @@
   }
 
   function renderWeather(self, ready) {
+    var w = self.weather;
     var time = self.weather.time;
-    var temp = self.temperatureToNumber(self.weather.temperature());
+    var temp = self.temperatureToNumber(w.main.temp);
 
     console.log("rendering weather");
     say(
@@ -179,13 +180,20 @@
     if ("request" in self && "abort" in self.request)
       try {self.request.abort();} catch (exn) {};
       
-    self.request = Weather.getCurrent(location, function(weather) {
-      self.weather = $.extend(weather, {
-        time : Date.now(),
-        location : location
-      });
-      console.log("weather is ready, dispatching");
-      dispatch(self, "weather-report");
+    var url = "http://api.openweathermap.org/data/2.5/weather?q=";
+           
+    self.request = $.ajax({
+      url : url + encodeURIComponent(location),
+      dataType : "jsonp",
+      success : function(weather) {
+        console.log(weather);
+        self.weather = $.extend(weather, {
+          time : Date.now(),
+          location : location
+        });
+        console.log("weather is ready, dispatching");
+        dispatch(self, "weather-report");
+      }
     });
   }
 

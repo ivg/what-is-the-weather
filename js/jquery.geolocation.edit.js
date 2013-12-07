@@ -186,7 +186,7 @@
             if (status == google.maps.GeocoderStatus.OK) {
                 $.each(results[0].address_components, function(n, addr) {
                     if (addr.types[0] == "locality") {
-                        $("#city").val(addr.short_name);
+                        $(opts.address[0]).val(addr.short_name);
                     }
                 });
             } else {
