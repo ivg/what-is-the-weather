@@ -160,14 +160,33 @@
     }
   }
 
+
   function renderWeather(self, ready) {
     var w = self.weather;
-    var time = self.weather.time;
     var temp = self.temperatureToNumber(w.main.temp);
 
+    function prepareTime() {
+      var now = Date.create();
+      var time = self.weather.time;
+      return {
+        day : time.isYesterday()
+          ? "Yesterday" : time.isTomorrow() 
+          ? "Tomorrow"  : time.isToday()
+          ? "Today"     : time.short(),
+        hour : time.format("{24hr}"),
+        isFuture : time.isFuture()
+      };
+    }
+      
+    var time = prepareTime();
+    console.log(time);
+
     console.log("rendering weather");
-    say(
-      ["Hi, it is", temp, "C in", self.weather.location, "at", time].join(" "));
+    say([
+      time.day, 
+      time.isFuture ? " it will be " : " it is ",
+      temp, " degrees in ", w.location
+    ].join(" "));
     self.greeted = true;
     ready(self);
   }
@@ -188,7 +207,7 @@
       success : function(weather) {
         console.log(weather);
         self.weather = $.extend(weather, {
-          time : Date.now(),
+          time : Date.create(),
           location : location
         });
         console.log("weather is ready, dispatching");
