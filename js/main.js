@@ -111,7 +111,7 @@
     say("Drag the marker to your location");
     $("#lat").val("0");
     $("#lng").val("0");
-    $("#location-selector").fadeIn(function() {
+    $("#google-map-location-selector").fadeIn(function() {
       $("#map").geolocate({
 	    lat: "#lat",
 	    lng: "#lng",
@@ -124,34 +124,18 @@
 		  title: "This is your selected location"
 	    }
       });
-
-      function clearWhenChanged(id) {
-        $(id).change(function() {
-          console.log("change event called");
-          $("#city").val("");
-        });
-      }
-
-      clearWhenChanged("#lat");
-      clearWhenChanged("#lng");
       ready(self);
     });
   }
 
   function finishMap(self, next, ready) {
-    $("#location-selector").fadeOut(function() {
+    $("#google-map-location-selector").fadeOut(function() {
       if (next === "request-weather") {
         self.location = $("#city").val();
+        ready(self);
       }
-      ready(self);
     });
   }
-
-  function acceptLocation(self, next, ready) {
-    self.location = "Moscow";
-    ready(self);
-  }
-
 
   function enterCityName(self, ready) {
   }
@@ -271,7 +255,7 @@
   }
 
 
-  $("#location-selector").hide();
+  $("#google-map-location-selector").hide();
 
   $(document).ready(function() {
     dispatch(initialState, "request-weather");
