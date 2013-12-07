@@ -35,8 +35,11 @@
     "select-location" : {
       enter : "Please, choose the method you prefer",
       options : [
-        { text : "Show me the map, I'll show you",
+        { text : "Show me the map",
           jump : "render-map", checked : false
+        },
+        { text : "Ask my browser, it knows the location",
+          jump : "start-geolocation"
         },
         { text : "I'll input a city name manually",
           jump : "render-city-input"
@@ -44,10 +47,18 @@
       ]
     },
     
+    "start-geolocation" : {
+      enter : "Please, allow your browser to give me your location."
+    },
+    
     "render-map" : {
       enter : renderMap,
+      leave : finishMap,
       options : [
-        {text : "Ok. Here I am!", checked : false}
+        {text : "Ok. Here I am!", checked : false, jump : "request-weather"},
+        {text : "It doesn't work for me, let's try another method",
+         jump : "select-location"
+        }
       ]
     },
     
@@ -71,7 +82,7 @@
       enter : "Oops! I'm confused and don't know what to say. Sorry.",
       options : [
         {text : "I don't know either"},
-        {text : "Aaa! Forget about that, let's start again"},
+        {text : "Forget about that, let's start again"},
         {text : "Just give say me what the weather is like",
          jump : "request-weather"},
         {text : "Let me help you. Give me a bug report form",
@@ -89,29 +100,56 @@
   };
 
   function say(message) {
-    $('#response').html("<p>" + message + "</p>"); 
+    $('#response').fadeOut(100, function () {
+      $(this).html("<p /><p>" + message + "</p>").fadeIn(); 
+    });
   }
+  
 
 
   function renderMap(self, ready) {
-    var map = $("<div>").attr("id", "map");
-    var lat = $("<input>").attr("id", "lat").val("56");
-    var lng = $("<input>").attr("id", "lng").val("37");
+    say("Drag the marker to your location");
+    $("#lat").val("0");
+    $("#lng").val("0");
+    $("#location-selector").fadeIn(function() {
+      $("#map").geolocate({
+	    lat: "#lat",
+	    lng: "#lng",
+        address : ["#city"],
+	    mapOptions: {
+	      disableDefaultUI: true,
+	      zoom: 1
+	    },
+	    markerOptions: {
+		  title: "This is your selected location"
+	    }
+      });
 
-    $("#response").append(map).append(lat).append(lng);
-    $("#map").geolocate({
-	  lat: "#lat",
-	  lng: "#lng",
-	  mapOptions: {
-		disableDefaultUI: true,
-		zoom: 5
-	  },
-	  markerOptions: {
-		title: "This is your selected location"
-	  }
+      function clearWhenChanged(id) {
+        $(id).change(function() {
+          console.log("change event called");
+          $("#city").val("");
+        });
+      }
+
+      clearWhenChanged("#lat");
+      clearWhenChanged("#lng");
+      ready(self);
     });
+  }
+
+  function finishMap(self, next, ready) {
+    $("#location-selector").fadeOut(function() {
+      if (next === "request-weather") {
+        self.location = $("#city").val();
+      }
+      ready(self);
+    });
+  }
+
+  function acceptLocation(self, next, ready) {
+    self.location = "Moscow";
     ready(self);
-    
   }
 
 
@@ -130,12 +168,18 @@
   }
 
   function guessLocation(state) {
-    return "Moscow";
+    if (google.loader.ClientLocation) {
+      return google.loader.ClientLocation.address.city;
+    } else {
+      console.log("Google was not able to detect location");
+      return "Paris";
+    }
   }
 
   function renderWeather(self, ready) {
     var time = self.weather.time;
     var temp = self.temperatureToNumber(self.weather.temperature());
+
     console.log("rendering weather");
     say(
       ["Hi, it is", temp, "C in", self.weather.location, "at", time].join(" "));
@@ -148,6 +192,9 @@
     say(["I'm preparing a weather report for you.", 
          "It can take some time. Please, wait for a while."].join(' '));
     ready(self);
+    if ("request" in self && "abort" in self.request)
+      try {self.request.abort();} catch (exn) {};
+      
     self.request = Weather.getCurrent(location, function(weather) {
       self.weather = $.extend(weather, {
         time : Date.now(),
@@ -179,11 +226,16 @@
       $("#options").append(row);
     }
 
-    $("#options").html("");
-    $.each(options, renderOption);
-    $("input[name='choice']").on("change", function () {
-      if ("value" in this)
-        jump(self, this.value);
+    
+    $("#options").fadeOut(200, function() {
+      $(this).html("");
+      $.each(options, renderOption);
+      $("input[name='choice']").on("change", function () {
+        if ("value" in this) 
+          jump(self, this.value);
+        
+      });
+      $(this).fadeIn();
     });
   }
 
@@ -194,7 +246,8 @@
     self.state = state;
     self.enterTime = Date.now();
     var inState = function(self) {
-      renderOptions(self, state.options, function(self, next) {
+      var options = "options" in state ? state.options : [];
+      renderOptions(self, options, function(self, next) {
         self.from = name;
         self.leaveTime = Date.now();
         if ("leave" in state) {
@@ -217,7 +270,10 @@
       inState(self);
   }
 
-  $('document').ready(function() {
+
+  $("#location-selector").hide();
+
+  $(document).ready(function() {
     dispatch(initialState, "request-weather");
   });
 

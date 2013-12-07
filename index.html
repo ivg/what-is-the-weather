@@ -16,14 +16,41 @@
       <div id="response" class="small-12 columns"> </div>
     </div>
 
+    <div class="row" id="location-selector">
+      <div class="row">
+        <div class="large-6 medium-8 columns" id="map"></div>
+      </div>
+      <form>
+        <div class="large-6 medium-8 columns">
+          <div class="row">
+            <div class="small-4 columns">
+              <label>Latitude</label>
+              <input type="text" id="lat" placeholder="Your latitude" >
+            </div>
+            <div class="small-4 columns">
+              <label>Longitude</label>
+              <input type="text" id="lng" placeholder="Your longitude">
+            </div>
+            <div class="small-4 columns">
+              <label>City</label>
+              <input type="text" id="city" placeholder="Your city" >
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+
     <form id="options">
     </form>
     
     <script src="js/jquery.js"></script>
     <script src="js/foundation.min.js"></script>
     <script> $(document).foundation(); </script>
+    <script type="text/javascript" src="http://www.google.com/jsapi"></script>
     <script type="text/javascript" src="js/jquery.geolocation.edit.min.js"></script>
     <script type="text/javascript" src="js/weather.min.js"></script>
     <script type="text/javascript" src="js/main.js"></script>
-  </body>
+
+ </body>
 </html>
