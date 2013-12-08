@@ -31,27 +31,8 @@
         }
       ]
     },
-
+    
     "select-location" : {
-      enter : "Please, choose the method you prefer",
-      options : [
-        { text : "Show me the map",
-          jump : "render-map", checked : false
-        },
-        { text : "Ask my browser, it knows the location",
-          jump : "start-geolocation"
-        },
-        { text : "I'll input a city name manually",
-          jump : "render-city-input"
-        }
-      ]
-    },
-    
-    "start-geolocation" : {
-      enter : "Please, allow your browser to give me your location."
-    },
-    
-    "render-map" : {
       enter : renderMap,
       leave : finishMap,
       options : [
@@ -92,14 +73,6 @@
     }
   };
 
-  var initialState = {
-    location : guessLocation(),
-    method : "weather",
-    temperatureToNumber : function(K) {
-      return (K - 273.15).toFixed();
-    }
-  };
-
   function say(message) {
     $('#response').fadeOut(100, function () {
       $(this).html("<p /><p>" + message + "</p>").fadeIn(); 
@@ -110,6 +83,7 @@
 
   function renderMap(self, ready) {
     say("Drag the marker to your location");
+    
     $("#lat").val("0");
     $("#lng").val("0");
     $("#google-map-location-selector").fadeIn(function() {
@@ -141,36 +115,54 @@
     });
   }
 
-  function enterCityName(self, ready) {
-  }
+  function guessLocation(ready) {
+    function reverseGeoCoding(lat, lng) {
+      var geo = new google.maps.Geocoder();
+      var latlng = new google.maps.LatLng(lat, lng);
+      geo.geocode({'latLng': latlng}, function(results, status) {
+        console.log("got reverse geocode. parsing");
+        
+        if (status == google.maps.GeocoderStatus.OK) {
+          var city = undefined;
+          results[0].address_components.each(function(addr) {
+            if (addr.types[0] == "locality") {
+              city = addr.short_name;
+            }
+          });
 
-  function enterCoordinates(){
-    return $("<input />").attr("type", "input");
-  }
+          if (city === undefined)
+            ready({lat:lat, lng:lng});
+          else 
+            ready(city);
+        } else {
+          console.log("geocoder request has failed: " + status);
+          ready({lat:lat, lng:lng});
+        }
+      });
+    }
 
-  function enterDate() {
-    return $("<input />").attr("type", "input");
-  }
-  function enterTime() {
-    return $("<input />").attr("type", "input");
-  }
-
-  function guessLocation(state) {
-    if (google.loader.ClientLocation) {
-      return google.loader.ClientLocation.address.city;
+    if ("geolocation" in navigator) {
+      console.log("trying to geolocate");
+      navigator.geolocation.getCurrentPosition(function(position) {
+        var lat = position.coords.latitude;
+        var lng = position.coords.longitude;
+        console.log("got coordinates, reverse geocoding");
+        reverseGeoCoding(lat,lng);
+      }, function(error) {
+        console.log(error);
+        ready("Paris");
+      });
     } else {
-      console.log("Google was not able to detect location");
-      return "Paris";
+      if (google.loader.ClientLocation)
+        ready(google.loader.ClientLocation.address.city);
+      ready("Paris");
     }
   }
-
 
   function renderWeather(self, ready) {
     var report = self.weather;
     var temp = self.temperatureToNumber(report.main.temp);
 
-
-      
     var time = (function() {
       var now = Date.create();
       var time = self.weather.time;
@@ -214,7 +206,7 @@
       var result=[];
       if (isRisky && isRainy) {
         result = 
-          ["Think twice before leaving your house or be ready to", descriptions];
+          ["Think twice before leaving your shelter or be ready to", descriptions];
       } else if (isRainy) {
         result = ["Be sure to take your umbrella, as I expect", descriptions ];
       } else if (isClear) {
@@ -334,9 +326,16 @@
   $("#google-map-location-selector").hide();
 
   $(document).ready(function() {
-    dispatch(initialState, "request-weather");
+    guessLocation(function (location) {
+      dispatch({
+        location : location,
+        method : "weather",
+        temperatureToNumber : function(K) {
+          return (K - 273.15).toFixed();
+        }
+      }, "request-weather");
+    });
   });
-
 
 })(jQuery);
 
