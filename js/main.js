@@ -94,6 +94,7 @@
 
   var initialState = {
     location : guessLocation(),
+    method : "weather",
     temperatureToNumber : function(K) {
       return (K - 273.15).toFixed();
     }
@@ -131,7 +132,10 @@
   function finishMap(self, next, ready) {
     $("#google-map-location-selector").fadeOut(function() {
       if (next === "request-weather") {
-        self.location = $("#city").val();
+        var city = $("#city").val();
+        
+        self.location = city != "" 
+          ? city : {lat : $("#lat").val(), lng : $("#lng").val()};
         ready(self);
       }
     });
@@ -165,7 +169,12 @@
     var w = self.weather;
     var temp = self.temperatureToNumber(w.main.temp);
 
-    function prepareTime() {
+
+    function preparePrecipitation() {
+      
+    }
+      
+    var time = (function() {
       var now = Date.create();
       var time = self.weather.time;
       return {
@@ -176,16 +185,21 @@
         hour : time.format("{24hr}"),
         isFuture : time.isFuture()
       };
-    }
-      
-    var time = prepareTime();
+    })();
+
+    var placename = Object.isString(w.location)
+          ? ["at", w.location].join(" ")
+          : "in the place you've specified";
+
     console.log(time);
 
     console.log("rendering weather");
     say([
-      time.day, 
-      time.isFuture ? " it will be " : " it is ",
-      temp, " degrees in ", w.location
+      time.day, ,
+      time.isFuture ? 
+        ("at", time.hour, "o'clock", "it will be") 
+        : "it is",
+      temp, "degrees", placename
     ].join(" "));
     self.greeted = true;
     ready(self);
@@ -199,13 +213,23 @@
     if ("request" in self && "abort" in self.request)
       try {self.request.abort();} catch (exn) {};
       
-    var url = "http://api.openweathermap.org/data/2.5/weather?q=";
+
+    var url = (function() {
+      var enc = encodeURIComponent;
+      var query = Object.isString(location) 
+            ? ["q=", enc(location)].join("") 
+            : ["lat=", enc(location.lat), "&lon=", enc(location.lng)].join("");
+      return [
+        "http://api.openweathermap.org/data/2.5/",
+        self.method, "?", query].join("");
+    })();
+    
+    console.log(url);
            
     self.request = $.ajax({
-      url : url + encodeURIComponent(location),
+      url : url,
       dataType : "jsonp",
       success : function(weather) {
-        console.log(weather);
         self.weather = $.extend(weather, {
           time : Date.create(),
           location : location

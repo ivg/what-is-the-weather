@@ -179,6 +179,10 @@
 
 		$( opts.lat ).val( pos.lat() );
 		$( opts.lng ).val( pos.lng() );
+        $.each(opts.address, function (n,id) {
+            $(id).val("");
+        });
+        
 
         var geo = new google.maps.Geocoder();
         var latlng = new google.maps.LatLng(pos.lat(), pos.lng());
