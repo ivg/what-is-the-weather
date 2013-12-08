@@ -1,5 +1,5 @@
-what-is-the-weather
-===================
+FOREWORD
+========
 
 Here lies a simple site that grants any user access to a weather forecasting
 service. The site can be accessed from Internet at
