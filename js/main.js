@@ -210,7 +210,7 @@
       } else if (isRainy) {
         result = ["Be sure to take your umbrella, as I expect", descriptions ];
       } else if (isClear) {
-        result = "The sky is clear";
+        result = ["The sky is clear"];
       } else {
         result = ["The", descriptions, "are expected"];
       }
@@ -273,7 +273,7 @@
         radio.attr("checked", "checked");
 
       var label = $("<label />").attr("for", id).html(text);
-      var row = $("<div />").addClass("row collapse")
+      var row = $("<div />").addClass("row")
             .append(radio).append(label);
       $("#options").append(row);
     }
