@@ -152,7 +152,6 @@
     if (time !== undefined) {
       self.method="forecast";
       self.weather = {time : time};
-      console.log(self.weather);
       ready(self, "request-weather");
     } else if (next == "next-week-forecast") {
       self.nextWeekForecast = true;
@@ -173,8 +172,6 @@
       var geo = new google.maps.Geocoder();
       var latlng = new google.maps.LatLng(lat, lng);
       geo.geocode({'latLng': latlng}, function(results, status) {
-        console.log("got reverse geocode. parsing");
-        
         if (status == google.maps.GeocoderStatus.OK) {
           var city = undefined;
           results[0].address_components.each(function(addr) {
@@ -195,11 +192,9 @@
     }
 
     if ("geolocation" in navigator) {
-      console.log("trying to geolocate");
       navigator.geolocation.getCurrentPosition(function(position) {
         var lat = position.coords.latitude;
         var lng = position.coords.longitude;
-        console.log("got coordinates, reverse geocoding");
         reverseGeoCoding(lat,lng);
       }, function(error) {
         console.log(error);
@@ -236,10 +231,6 @@
     var placename = Object.isString(report.location)
           ? ["at", report.location].join(" ")
           : "in the place you've specified";
-
-    console.log(time);
-
-    console.log("rendering weather");
 
     var temperature = [
       time.day, ,
@@ -301,8 +292,6 @@
         self.method, "?", query, cnt].join("");
     })();
     
-    console.log(url);
-           
     self.request = $.ajax({
       url : url,
       dataType : "jsonp",
@@ -310,7 +299,6 @@
         var weather = (function () {
           if (!/forecast.*/.test(self.method)) 
             return weather;
-          console.log("looking up for a forecast nearest to" + self.weather.time);
 
           // there is a bug in openweathermap API: field dt contains wrong date
           // (it misses one digit). So I'm using dt_txt field to search for the
@@ -323,7 +311,6 @@
               var t = Date.create(report.dt_txt);
               return Math.abs(t.secondsSince(self.weather.time));
             });
-            console.log(sorted);
             return sorted[0];
           } else {
             var n = Date.create().daysUntil(self.weather.time);
@@ -331,16 +318,13 @@
             return weather.list[Math.max(n, 0)];
           }
         })();
-        console.log(weather);
         var time = Date.create();
         if ("weather" in self && "time" in self.weather) {
-          console.log("setting weather to " + self.weather.time);
           time = self.weather.time;
         }
         self.weather = weather;
         self.weather.location = location;
         self.weather.time = time;
-        console.log("weather is ready, dispatching");
         dispatch(self, "weather-report");
       }
     });
@@ -381,7 +365,6 @@
   }
 
   function dispatch(self, name) {
-    console.log("entering state " + name);
     var name = name in dialogs ? name : "unknown-option";
     var state = dialogs[name];
     self.state = state;

@@ -1,0 +1,119 @@
+
+Overview
+========
+
+A program is implemented as a web site client to Openweathermap.org services.
+Only client-side technologies are used, so the application is easy deployable.
+
+
+Third party software
+====================
+
+I've tried to write as little code as possible and use ready and solid solutions, 
+instead of reinventing the wheel. So there is a couple of projects that I've used.
+
+First off all my program can be considered as yet another frontend to the 
+OpenWeatherMap [1] project. I've started with Weather.js [2] library, but
+forfeited it in a last stage, because it was not enough flexible and contains some
+bugs. Nevertheless, I've drawn some inspiration from it, so I think it should be
+mentioned here. The big part of my program is devoted to geocoding and reverse
+geocoding. I've used slightly enhanced a jQuery Geolocation plugin [3]. I also used
+google maps directly and goolge loader to get ip address geolocation (though I've
+never saw it working). For a frontend I've used Zurb Foundation [4]. Thanks to 
+Zurb my application is accessible on mobile devices (though there're some issues 
+on iPhone in a portrait orientation). Last, but not least, I've used jQuery [5] and
+an excellent Sugar.js [6] as a basic libraries.
+
+
+Architecture
+============
+
+The program consists of two artifacts:
+
+1. index.html - a front-end
+2. js/main.js - a back-end
+
+All other artifacts were borrowed, with one little exception: I've modified 
+jquery.geolocation.edit.js and added reverse geolocation to the address fields
+after each change of a marker position. 
+
+Front-end
+---------
+
+The front-end is very simple and contains only bare skeleton. This is
+understandable since all content is rendered dynamically. I've pushed most
+scripts to the bottom in order to speed up load time.
+
+Back-end
+--------
+
+In order to separate logic and semantics I've implemented dialog as a data structure
+that is parsed by a finite state machine (FSM). 
+
+Variable `dialogs` is a pure data (no code) that describes all possible dialogs. 
+Each entry in dialog can be considered as a separate controller and describes one
+of the state of FSM. Entry can contain field `enter` that points to a function
+that should be called when FSM enters this state. If this field points to a string,
+than this string would be rendered on the main page. If an entry contains field
+`leave`, then it will be called on exit. All functions accept current state, and
+a continuation (more about this later). Function `leave` also accepts a name of
+a destination state, that can be changed (this trick was used in a long term
+weather forecasting). Also, each entry can contain an array of options. Each
+option contains several fields (some of them are optional), where the most
+interesting is field `jump` that designates a name of next state.
+
+
+The FSM is implemented in functions `dispatch` and `renderOptions`. I've used a
+continuation passing style [7] to implement my FSM in an asynchronous environment.
+Each function accepts a `ready` function that should be called instead of a return.
+`ready` function accepts at least one argument: a state. It should be noted that,
+since state is passed by reference it is strictly not necessary to pass it to the
+continuation, but I've decided that it should be more consistent.
+
+Function `renderWeather` emits a text that should look like as a text written by a
+human. It uses a bunch of heuristics, in order to be useful to a user. For example,
+it greps weather conditions for a specific notions of a very bad weather and advises
+user for not to leave his shelter. It uses a Date object enhanced by Sugar to guess
+the right tense. 
+
+Function `requestWeather` interacts with openweathermap [1] in order to get the
+weather forecasts and current weather reports. It supports three methods: current
+weather, a day forecast and 14-days longterm forecast.
+
+Function `prepareForecast` takes care of translating user requirements to a
+requests understandable by openweather API. 
+
+Function `guessLocation` tries several tactics in order to retrieve users location.
+At first it tries a new gelocation API, support by most modern browsers. On a
+success it tries to reverse geolocate users's city. If reverse geolocation fails
+the lat/lng coordinates are used. In case of a gelocation failure (either
+unsupported by a browser or denied by a user) it tries to geolocate user by it's IP
+address. If it fails (and it usually fails for available to me IPs) it tries to
+guess where a user lives, starting with a Paris... 
+
+
+
+Program logic
+=============
+
+In a previous section I've reported a static structure of my program. This section
+is about its dynamics. 
+
+After the DOM is loaded the geolocation process is started. It will always succeed,
+(thanks to educated guess at the last stage) and will be followed by a request for
+a current weather for a discovered location. The FSM will enter state named
+"request-weather" and will leave it automatically when the weather is ready. 
+User can interfere the weather requesting in a case of a network failure or lags.
+After that moment the FSM will accept user inputs and render the results.
+
+
+References
+==========
+
+[1] http://openweathermap.org/
+[2] http://weatherjs.com/
+[3] http://miloss.github.io/jquery-geolocation-edit/
+[4] http://foundation.zurb.com/
+[5] http://jquery.com/
+[6] http://sugarjs.com/
+[7] http://en.wikipedia.org/wiki/Continuation-passing_style

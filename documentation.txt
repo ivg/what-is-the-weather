@@ -4,7 +4,7 @@ FOREWORD
 Here lies a simple site that grants any user access to a weather forecasting
 service. The site can be accessed from Internet at
 
-   [http://what-is-the-weather.net]
+   http://what-is-the-weather.net
 
 Why yet another weather forecaster? Well, my project is not about a weather
 forecasting, but about user interfaces. I've tried to make a program that has
