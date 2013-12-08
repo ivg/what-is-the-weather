@@ -45,8 +45,8 @@
           
         },
         { 
-          text : "I need the weather for this particular date",
-          jump : "render-forecast-date"
+          text : "I'd like to hear a longterm forecast ",
+          jump : "render-forecast-days"
         },
         { text : "I need a forecast for a different location",
           jump : "select-location"
@@ -56,7 +56,7 @@
 
     "render-forecast-time" : {
       enter : "In what part of day are you interested?",
-      leave : prepareTodaysForecast,
+      leave : prepareForecast,
       options : [
         {text : "morning", jump : "forecast-for-morning", checked:false},
         {text : "noon", jump : "forecast-for-noon"},
@@ -64,6 +64,21 @@
         {text : "evening", jump : "forecast-for-evening"},
         {text : "late evening", jump : "forecast-for-late-evening"},
         {text : "night", jump : "forecast-for-night"}
+      ]
+    },
+
+    "render-forecast-days" : {
+      enter : "In what day are you interested?",
+      leave : prepareForecast,
+      options : [
+        {text : "Sunday", jump : "sunday", checked:false},
+        {text : "Monday", jump : "monday"},
+        {text : "Tuesday", jump : "tuesday"},
+        {text : "Wednesday", jump : "wednesday"},
+        {text : "Thursday", jump : "thursday"},
+        {text : "Friday", jump : "friday"},
+        {text : "Saturday", jump : "saturday"},
+        {text : "Next week, please", jump : "next-week-forecast"}
       ]
     },
 
@@ -121,7 +136,7 @@
     });
   }
 
-  function prepareTodaysForecast(self, next, ready) {
+  function prepareForecast(self, next, ready) {
     function dayHour(n) {
       return (n).hoursAfter(Date.create().beginningOfDay());
     }
@@ -134,10 +149,23 @@
       "forecast-for-night" : dayHour(24)
     })[next];
 
-    self.method="forecast";
-    self.weather = {time : time};
-    console.log(self.weather);
-    ready(self, "request-weather");
+    if (time !== undefined) {
+      self.method="forecast";
+      self.weather = {time : time};
+      console.log(self.weather);
+      ready(self, "request-weather");
+    } else if (next == "next-week-forecast") {
+      self.nextWeekForecast = true;
+      ready(self, "render-forecast-days");
+    } else {
+      var week = 
+            "nextWeekForecast" in self && self.nextWeekForecast ? "next" : "this";
+      var time = Date.create([next, "of", week, "week"].join(" "));
+      self.method = "forecast/daily";
+      self.weather = {time : (12).hoursAfter(time)};
+      self.nextWeekForecast = false;
+      ready(self, "request-weather");
+    }
   }
 
   function guessLocation(ready) {
@@ -186,11 +214,12 @@
 
   function renderWeather(self, ready) {
     var report = self.weather;
-    var temp = self.temperatureToNumber(report.main.temp);
+    var temp = self.temperatureToNumber(
+      "main" in report ? report.main.temp : report.temp.day);
 
     var time = (function() {
       var now = Date.create();
-      var time = Date.create(report.dt_txt);
+      var time = Date.create(self.weather.time);
       return {
         day : time.isYesterday()
           ? "Yesterday" : time.isTomorrow() 
@@ -235,9 +264,9 @@
       } else if (isRainy) {
         result = ["Be sure to take your umbrella, as I expect", descriptions ];
       } else if (isClear) {
-        result = ["The sky is clear"];
+        result = time.isFuture ? ["The sky will be clear"] : ["The sky is clear"];
       } else {
-        result = ["The", descriptions, "are expected"];
+        result = ["I'm expecting the", descriptions];
       }
       return result.join(" ");
     })();
@@ -278,21 +307,36 @@
         var weather = (function () {
           if (!/forecast.*/.test(self.method)) 
             return weather;
-          var t0 = +self.weather.time;
-          console.log("looking up for a forecast nearest to" + t0);
-          // sort forecast reports by the «distance» from the require time
-          var sorted = weather.list.sortBy(function(report) {
-            var t = Date.create(report.dt_txt);
-            return Math.abs(t.secondsSince(t0));
-          });
-          console.log(sorted);
-          return sorted[0];
+          console.log("looking up for a forecast nearest to" + self.weather.time);
+
+          // there is a bug in openweathermap API: field dt contains wrong date
+          // (it misses one digit). So I'm using dt_txt field to search for the
+          // nearest weather report. Unfortunately in a case of a daily forecast
+          // there is not dt_txt field so we need to implement a different algo.
+          
+          if (self.method === "forecast") {
+            // sort forecast reports by the «distance» from the require time
+            var sorted = weather.list.sortBy(function(report) {
+              var t = Date.create(report.dt_txt);
+              return Math.abs(t.secondsSince(self.weather.time));
+            });
+            console.log(sorted);
+            return sorted[0];
+          } else {
+            var n = Date.create().daysUntil(self.weather.time);
+            // silently ignore retrospective requests
+            return weather.list[Math.max(n, 0)];
+          }
         })();
         console.log(weather);
-        self.weather = $.extend(weather, {
-          time : Date.create(),
-          location : location
-        });
+        var time = Date.create();
+        if ("weather" in self && "time" in self.weather) {
+          console.log("setting weather to " + self.weather.time);
+          time = self.weather.time;
+        }
+        self.weather = weather;
+        self.weather.location = location;
+        self.weather.time = time;
         console.log("weather is ready, dispatching");
         dispatch(self, "weather-report");
       }
