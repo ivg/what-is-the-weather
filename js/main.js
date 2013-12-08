@@ -166,13 +166,10 @@
 
 
   function renderWeather(self, ready) {
-    var w = self.weather;
-    var temp = self.temperatureToNumber(w.main.temp);
+    var report = self.weather;
+    var temp = self.temperatureToNumber(report.main.temp);
 
 
-    function preparePrecipitation() {
-      
-    }
       
     var time = (function() {
       var now = Date.create();
@@ -187,20 +184,48 @@
       };
     })();
 
-    var placename = Object.isString(w.location)
-          ? ["at", w.location].join(" ")
+    var placename = Object.isString(report.location)
+          ? ["at", report.location].join(" ")
           : "in the place you've specified";
 
     console.log(time);
 
     console.log("rendering weather");
-    say([
+
+    var temperature = [
       time.day, ,
       time.isFuture ? 
         ("at", time.hour, "o'clock", "it will be") 
         : "it is",
       temp, "degrees", placename
-    ].join(" "));
+    ].join(" ");
+
+    var conditions = (function() {
+      var isRainy = report.weather.some({main: "Rain"});
+      var isRisky 
+            =  report.weather.some({description : /.*shower.*/i})
+            || report.weather.some({id : /5(02|03|04|11)/})
+            || report.weather.some({description : /.*thunderstorm.*/i}) ;
+      var isClear = report.weather.some({id : 800});
+      var descriptions = report.weather
+            .map(function(weather) {return weather.description;})
+            .join(" and ");
+      
+      var result=[];
+      if (isRisky && isRainy) {
+        result = 
+          ["Think twice before leaving your house or be ready to", descriptions];
+      } else if (isRainy) {
+        result = ["Be sure to take your umbrella, as I expect", descriptions ];
+      } else if (isClear) {
+        result = "The sky is clear";
+      } else {
+        result = ["The", descriptions, "are expected"];
+      }
+      return result.join(" ");
+    })();
+
+    say([temperature, conditions, ""].join(". "));
     self.greeted = true;
     ready(self);
   }
