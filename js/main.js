@@ -7,8 +7,7 @@
       enter : requestWeather,
       options : [
         { text : "Ok. I'll wait"},
-        { text : "So? Use the force!"},
-        { text : "I'm tired to wait!"},
+        { text : "So? Use the force!", jump: "request-weather"},
         { text : "No, I do not want to know a weather for this location",
           jump : "select-location"},
         { text : "I already know the weather for that time.",
@@ -21,8 +20,6 @@
       enter : renderWeather,
       options : [
         { text: "Ok. Thanks."},
-        { text : "It is interesting... but I live in a different place.",
-          jump : "select-location"}, 
         { text : "Fine, but I need a forecast for another time",
           jump : "select-forecast"
         },
@@ -36,10 +33,7 @@
       enter : renderMap,
       leave : finishMap,
       options : [
-        {text : "Ok. Here I am!", checked : false, jump : "request-weather"},
-        {text : "It doesn't work for me, let's try another method",
-         jump : "select-location"
-        }
+        {text : "Ok. Here I am!", checked : false, jump : "request-weather"}
       ]
     },
     
@@ -47,7 +41,8 @@
       enter : "For what date, time or place would like to know the weather?",
       options : [
         { text : "I'd like to know the weather for today",
-          jump : "render-forecast-time"
+          jump : "render-forecast-time", checked:false
+          
         },
         { 
           text : "I need the weather for this particular date",
@@ -56,6 +51,19 @@
         { text : "I need a forecast for a different location",
           jump : "select-location"
         }
+      ]
+    },
+
+    "render-forecast-time" : {
+      enter : "In what part of day are you interested?",
+      leave : prepareTodaysForecast,
+      options : [
+        {text : "morning", jump : "forecast-for-morning", checked:false},
+        {text : "noon", jump : "forecast-for-noon"},
+        {text : "afternoon", jump : "forecast-for-afternoon"},
+        {text : "evening", jump : "forecast-for-evening"},
+        {text : "late evening", jump : "forecast-for-late-evening"},
+        {text : "night", jump : "forecast-for-night"}
       ]
     },
 
@@ -78,8 +86,6 @@
       $(this).html("<p /><p>" + message + "</p>").fadeIn(); 
     });
   }
-  
-
 
   function renderMap(self, ready) {
     say("Drag the marker to your location");
@@ -110,9 +116,28 @@
         
         self.location = city != "" 
           ? city : {lat : $("#lat").val(), lng : $("#lng").val()};
-        ready(self);
+        ready(self, next);
       }
     });
+  }
+
+  function prepareTodaysForecast(self, next, ready) {
+    function dayHour(n) {
+      return (n).hoursAfter(Date.create().beginningOfDay());
+    }
+    var time = ({
+      "forecast-for-morning": dayHour(8),
+      "forecast-for-noon"   : dayHour(12),
+      "forecast-for-afternoon" : dayHour(16),
+      "forecast-for-evening"   : dayHour(18),
+      "forecast-for-late-evening" : dayHour(21),
+      "forecast-for-night" : dayHour(24)
+    })[next];
+
+    self.method="forecast";
+    self.weather = {time : time};
+    console.log(self.weather);
+    ready(self, "request-weather");
   }
 
   function guessLocation(ready) {
@@ -165,7 +190,7 @@
 
     var time = (function() {
       var now = Date.create();
-      var time = self.weather.time;
+      var time = Date.create(report.dt_txt);
       return {
         day : time.isYesterday()
           ? "Yesterday" : time.isTomorrow() 
@@ -227,18 +252,21 @@
     say(["I'm preparing a weather report for you.", 
          "It can take some time. Please, wait for a while."].join(' '));
     ready(self);
+
+    // silently abort previous requests
     if ("request" in self && "abort" in self.request)
       try {self.request.abort();} catch (exn) {};
-      
+
 
     var url = (function() {
       var enc = encodeURIComponent;
       var query = Object.isString(location) 
             ? ["q=", enc(location)].join("") 
             : ["lat=", enc(location.lat), "&lon=", enc(location.lng)].join("");
+      var cnt = self.method == "forecast/daily" ? "&cnt=14" : "";
       return [
         "http://api.openweathermap.org/data/2.5/",
-        self.method, "?", query].join("");
+        self.method, "?", query, cnt].join("");
     })();
     
     console.log(url);
@@ -247,6 +275,20 @@
       url : url,
       dataType : "jsonp",
       success : function(weather) {
+        var weather = (function () {
+          if (!/forecast.*/.test(self.method)) 
+            return weather;
+          var t0 = +self.weather.time;
+          console.log("looking up for a forecast nearest to" + t0);
+          // sort forecast reports by the «distance» from the require time
+          var sorted = weather.list.sortBy(function(report) {
+            var t = Date.create(report.dt_txt);
+            return Math.abs(t.secondsSince(t0));
+          });
+          console.log(sorted);
+          return sorted[0];
+        })();
+        console.log(weather);
         self.weather = $.extend(weather, {
           time : Date.create(),
           location : location
@@ -303,7 +345,7 @@
         self.from = name;
         self.leaveTime = Date.now();
         if ("leave" in state) {
-          state.leave(self, next, function(self) {
+          state.leave(self, next, function(self, next) {
             dispatch(self, next);
           });
         } else {
@@ -321,10 +363,8 @@
     } else  
       inState(self);
   }
-
-
+  
   $("#google-map-location-selector").hide();
-
   $(document).ready(function() {
     guessLocation(function (location) {
       dispatch({
