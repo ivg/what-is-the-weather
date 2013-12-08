@@ -203,7 +203,10 @@
         reverseGeoCoding(lat,lng);
       }, function(error) {
         console.log(error);
-        ready("Paris");
+        if (google.loader.ClientLocation)
+          ready(google.loader.ClientLocation.address.city);
+        else
+          ready("Paris");
       });
     } else {
       if (google.loader.ClientLocation)
@@ -422,8 +425,3 @@
   });
 
 })(jQuery);
-
-
-
-
-
